@@ -2,7 +2,9 @@ pipeline {
     agent any
 
     environment {
-        KUBECONFIG = credentials('kubeconfig')   // Jenkins credential ID for kubeconfig
+        // Jenkins credential IDs
+        KUBECONFIG = credentials('kubeconfig')       // Your kubeconfig credentials ID
+        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials' // Docker Hub credentials ID
     }
 
     stages {
@@ -12,19 +14,23 @@ pipeline {
             }
         }
 
-        stage('Set Environment') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'dev') {
-                        DEPLOY_PATH = 'k8s/overlays/dev'
-                        CLUSTER = 'Test Cluster'
-                    } else if (env.BRANCH_NAME == 'main') {
-                        DEPLOY_PATH = 'k8s/overlays/prod'
-                        CLUSTER = 'Production Cluster'
-                    } else {
-                        error("Unsupported branch: ${env.BRANCH_NAME}")
+                    echo "Building Docker image for polling-app..."
+                    sh 'docker build -t polling-app:latest ./polling-app'
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    echo "Pushing image to Docker Hub..."
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKERHUB_CREDENTIALS) {
+                        sh 'docker tag polling-app:latest aditya/polling-app:latest'
+                        sh 'docker push aditya/polling-app:latest'
                     }
-                    echo "Deploying branch '${env.BRANCH_NAME}' to ${CLUSTER}"
                 }
             }
         }
@@ -32,20 +38,17 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    sh """
-                    kubectl apply -k ${DEPLOY_PATH}
-                    """
+                    if (env.BRANCH_NAME == 'dev') {
+                        echo "Deploying to Test Cluster (dev)..."
+                        sh 'kubectl apply -f k8s/dev/'
+                    } else if (env.BRANCH_NAME == 'main') {
+                        echo "Deploying to Production Cluster (main)..."
+                        sh 'kubectl apply -f k8s/prod/'
+                    } else {
+                        echo "Skipping deployment for non-target branch: ${env.BRANCH_NAME}"
+                    }
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Deployment successful for ${env.BRANCH_NAME}"
-        }
-        failure {
-            echo "Deployment failed for ${env.BRANCH_NAME}"
         }
     }
 }
