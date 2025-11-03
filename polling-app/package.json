@@ -1,0 +1,12 @@
+{
+  "name": "polling-app",
+  "version": "1.0.0",
+  "description": "Simple polling app for GitOps demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
