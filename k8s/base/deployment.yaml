@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polling-app
+  labels:
+    app: polling-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: polling-app
+  template:
+    metadata:
+      labels:
+        app: polling-app
+    spec:
+      containers:
+        - name: polling-app
+          image: adityagupta19/polling-app:latest
+          ports:
+            - containerPort: 8080
